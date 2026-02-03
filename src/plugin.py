@@ -538,18 +538,18 @@ class openATVMain(ATVhelper):
 						MultiContentEntryText(pos=(6,2), size=(914,34), font=0, color="grey", color_sel="white", flags=RT_HALIGN_LEFT|RT_ELLIPSIS, text=0),  # theme
 						MultiContentEntryText(pos=(6,28), size=(914,32), font=1, color=0x003ca2c6, color_sel=0x00a6a6a6, flags=RT_HALIGN_LEFT, text=1),  # creation
 						MultiContentEntryText(pos=(6,52), size=(914,32), font=1, color=0x003ca2c6, color_sel=0x00a6a6a6, flags=RT_HALIGN_LEFT, text=2),  # forum
-						MultiContentEntryText(pos=(922,2), size=(250,30), font=2, color=0x005fb300, color_sel=0x0088ff00, flags=RT_HALIGN_RIGHT, text=3),  # postTime
-						MultiContentEntryText(pos=(922,24), size=(250,34), font=0, color=0x00b2b300, color_sel=0x00ffff00, flags=RT_HALIGN_RIGHT, text=4),  # user
-						MultiContentEntryText(pos=(922,54), size=(250,30), font=2, color=0x003ca2c6, color_sel=0x0092cbdf, flags=RT_HALIGN_RIGHT, text=5)  # statistic
+						MultiContentEntryText(pos=(922,2), size=(260,30), font=2, color=0x005fb300, color_sel=0x0088ff00, flags=RT_HALIGN_RIGHT, text=3),  # postTime
+						MultiContentEntryText(pos=(922,24), size=(260,34), font=0, color=0x00b2b300, color_sel=0x00ffff00, flags=RT_HALIGN_RIGHT, text=4),  # user
+						MultiContentEntryText(pos=(922,54), size=(260,30), font=2, color=0x003ca2c6, color_sel=0x0092cbdf, flags=RT_HALIGN_RIGHT, text=5)  # statistic
 						]),
 						"thread": (93,[
 						MultiContentEntryPixmapAlphaTest(pos=(0,0), size=(1200,1), png=4), # line separator
 						MultiContentEntryPixmapAlphaBlend(pos=(6,2), size=(70,70), flags=BT_HALIGN_LEFT|BT_VALIGN_CENTER|BT_SCALE|BT_KEEP_ASPECT_RATIO, png=5),  # avatar
 						MultiContentEntryPixmapAlphaBlend(pos=(9,72), size=(64,16), png=6),  # online
 						MultiContentEntryText(pos=(106,6), size=(904,80), font=1, color=0x003ca2c6, color_sel=0x0092cbdf, flags=RT_HALIGN_LEFT|RT_WRAP, text=0), # description
-						MultiContentEntryText(pos=(1022,6), size=(150,30), font=2, color=0x005fb300, color_sel=0x0088ff00, flags=RT_HALIGN_RIGHT, text=1),  # postTime
-						MultiContentEntryText(pos=(1022,30), size=(150,34), font=0, color=0x00b2b300, color_sel=0x00ffff00, flags=RT_HALIGN_RIGHT, text=2),  # user
-						MultiContentEntryText(pos=(1022,60), size=(150,30), font=2, color=0x003ca2c6, color_sel=0x0092cbdf, flags=RT_HALIGN_RIGHT, text=3)  # postcount
+						MultiContentEntryText(pos=(1022,6), size=(160,30), font=2, color=0x005fb300, color_sel=0x0088ff00, flags=RT_HALIGN_RIGHT, text=1),  # postTime
+						MultiContentEntryText(pos=(1022,30), size=(160,34), font=0, color=0x00b2b300, color_sel=0x00ffff00, flags=RT_HALIGN_RIGHT, text=2),  # user
+						MultiContentEntryText(pos=(1022,60), size=(160,30), font=2, color=0x003ca2c6, color_sel=0x0092cbdf, flags=RT_HALIGN_RIGHT, text=3)  # postcount
 						])
 					},
 				"fonts": [gFont("Regular",22), gFont("Regular",20), gFont("Regular",18)]

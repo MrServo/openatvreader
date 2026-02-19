@@ -13,7 +13,9 @@ from requests import get, exceptions
 from shutil import copy2, rmtree
 from twisted.internet.reactor import callInThread
 from urllib.parse import urlparse, parse_qs
+
 from enigma import getDesktop, eTimer, BT_SCALE, BT_KEEP_ASPECT_RATIO
+
 from Components.ActionMap import ActionMap, NumberActionMap
 from Components.ConditionalWidget import BlinkingWidget
 from Components.Label import Label
@@ -27,6 +29,7 @@ from Screens.Screen import Screen
 from Tools.BoundFunction import boundFunction
 from Tools.Directories import resolveFilename, SCOPE_PLUGINS, SCOPE_CONFIG
 from Tools.LoadPixmap import LoadPixmap
+
 from . import __version__
 from .forumparser import fparser
 
@@ -50,19 +53,6 @@ class ATVglobals:
 
 
 class ATVhelper(Screen, ATVglobals):
-	def getHTMLdata(self, url):
-		try:
-			response = get(url, timeout=(3.05, 6))
-			if response.ok:
-				return response.text
-			else:
-				print(f"Website access ERROR, response code: {response.raise_for_status()}")
-		except exceptions.RequestException as error:
-			errMsg = f"Der opena.tv Server ist zur Zeit nicht erreichbar.\n{error}"
-			print(f"[{self.MODULE_NAME}] ERROR in module 'getHTMLdata': {errMsg}")
-			self.session.open(MessageBox, errMsg, MessageBox.TYPE_INFO, timeout=30, close_on_any_key=True)
-			return ""
-
 	def handleAvatar(self, widget, pixUrl, callback=None):
 		avatarPix, filePath = None, join(self.AVATARPATH, "unknown.png")
 		if pixUrl:
@@ -90,7 +80,7 @@ class ATVhelper(Screen, ATVglobals):
 		try:
 			response = get(url, timeout=(3.05, 6))
 			if not response.ok:
-				print(f"Website access ERROR, response code: {response.raise_for_status()}", "")
+				print(f"[{self.MODULE_NAME}] Website access ERROR, response code: {response.raise_for_status()}", "")
 		except exceptions.RequestException as error:
 			errMsg = f"Der opena.tv Server ist zur Zeit nicht erreichbar.\n{error}"
 			print(f"[{self.MODULE_NAME}] ERROR in module 'downloadAvatar': {errMsg}!")
@@ -123,7 +113,7 @@ class ATVhelper(Screen, ATVglobals):
 		favfound = False
 		if favname and favlink and exists(self.FAVORITEN):
 			try:
-				with open(self.FAVORITEN, "r") as f:
+				with open(self.FAVORITEN) as f:
 					for line in f.read().split("\n"):
 						if favlink in line:
 							favfound = True
@@ -249,7 +239,7 @@ class openATVFav(ATVhelper):
 		menutexts = []
 		if exists(self.FAVORITEN):
 			try:
-				with open(self.FAVORITEN, "r") as f:
+				with open(self.FAVORITEN) as f:
 					for line in f.read().split(linesep):
 						if "\t" in line:
 							self.count += 1
@@ -290,7 +280,7 @@ class openATVFav(ATVhelper):
 		if answer is True:
 			data = ""
 			try:
-				with open(self.FAVORITEN, "r") as f:
+				with open(self.FAVORITEN) as f:
 					for line in f.read().split("\n"):
 						if favlink not in line and line != "\n" and line != "":
 							data += f"{line}{linesep}"
@@ -446,17 +436,17 @@ class openATVPost(ATVhelper):
 		try:
 			response = get(url, timeout=(3.05, 6))
 			if not response.ok:
-				print(f"Website access ERROR, response code: {response.raise_for_status()}", "")
+				print(f"{self.MODULE_NAME}] Website access ERROR, response code: {response.raise_for_status()}", "")
 		except exceptions.RequestException as error:
 			errMsg = f"Der opena.tv Server ist zur Zeit nicht erreichbar.\n{error}"
-			print(f"[{self.MODULE_NAME}] ERROR in module 'downloadAvatar': {errMsg}!")
+			print(f"[{self.MODULE_NAME}] ERROR in module 'downloadIcon': {errMsg}!")
 			self.session.open(MessageBox, errMsg, MessageBox.TYPE_INFO, timeout=30, close_on_any_key=True)
 			return
 		try:
 			with open(filePath, "wb") as f:
 				f.write(response.content)
 		except OSError as errMsg:
-			print(f"[{self.MODULE_NAME}] ERROR in module 'downloadAvatar': {errMsg}!")
+			print(f"[{self.MODULE_NAME}] ERROR in module 'downloadIcon': {errMsg}!")
 			self.session.open(MessageBox, errMsg, MessageBox.TYPE_INFO, timeout=30, close_on_any_key=True)
 		fileParts = filePath.split(".")
 		if SUPPALLIMGS:  # use new function 'detectImageType' in OpenATV 7.6.0 or newer
@@ -636,11 +626,20 @@ class openATVMain(ATVhelper):
 		self.showPic(self["button_keypad"], join(self.PLUGINPATH, f"icons/keypad_{self.RESOLUTION}.png"), show=False, scale=False)
 		self.updateYellowButton()
 		if self.favlink or self.threadLink and self.threadLinks:
-			callInThread(self.makeThread)
+			callInThread(self.makeThread, boundFunction(self.checkHTMLerror, firstCall=True))
 		else:
-			callInThread(self.makeLatest)
+			callInThread(self.makeLatest, boundFunction(self.checkHTMLerror, firstCall=True))
 
-	def makeLatest(self, index=None):
+	def checkHTMLerror(self, firstCall=False, errMsg=""):
+		if errMsg:
+			if firstCall:
+				userMsg = f"Fehler beim Zugriff auf die Forumsseite:\n\n{errMsg}\n\nDas Plugin wird deswegen nun beendet."
+				self.session.open(MessageBox, userMsg, type=MessageBox.TYPE_ERROR, timeout=10, close_on_any_key=True)
+				self.keyExit()
+			else:
+				self.session.open(MessageBox, f"Fehler beim Zugriff auf die Forumsseite:\n\n{errMsg}\n\n", type=MessageBox.TYPE_ERROR, timeout=5, close_on_any_key=True)
+
+	def makeLatest(self, errorCallBack, index=None):
 		self["menu"].style = "default"
 		self["menu"].updateList([])
 		self["waiting"].setText("bitte warten...")
@@ -658,8 +657,7 @@ class openATVMain(ATVhelper):
 		for startPage in range(5):  # load the first five pages only
 			errMsg, latestDict = fparser.parseLatest(int(startPage * self.POSTSPERMAIN))
 			if errMsg:
-				self.session.open(MessageBox, f"FEHLER: {errMsg}", type=MessageBox.TYPE_ERROR, timeout=5, close_on_any_key=True)
-				return
+				errorCallBack(errMsg=errMsg)
 			for post in latestDict.get("threads", []):
 				userName = post.get("userName", "")
 				if userName not in userList:
@@ -692,7 +690,7 @@ class openATVMain(ATVhelper):
 		if index:
 			self["menu"].setCurrentIndex(index)
 
-	def makeThread(self, index=None, movetoend=False):
+	def makeThread(self, errorCallBack, index=None, movetoend=False):
 		self.currMode = "thread"
 		self["menu"].style = "thread"
 		self["menu"].updateList([])
@@ -703,10 +701,9 @@ class openATVMain(ATVhelper):
 		self["key_blue"].setText("Startmenu")
 		self.postList, self.threadPics, self.threadTexts = [], [], []
 		self.ready = False
-		errMsg, threadDict = fparser.parseTread(threadUrl=self.favlink if self.favlink else self.threadLink)
+		errMsg, threadDict = fparser.parseThread(threadUrl=self.favlink if self.favlink else self.threadLink)
 		if errMsg:
-			self.session.open(MessageBox, f"FEHLER: {errMsg}", type=MessageBox.TYPE_ERROR, timeout=5, close_on_any_key=True)
-			return
+			errorCallBack(errMsg=errMsg)
 		threadTitle = threadDict.get("threadTitle", "{kein Titel gefunden}")
 		self.currPage, self.maxPages = threadDict.get("currPage", 1), threadDict.get("maxPages", 1)
 		self["waiting"].stopBlinking()
@@ -784,7 +781,7 @@ class openATVMain(ATVhelper):
 			self.threadLink = self.threadLinks[current]
 			if self.threadLink:
 				self.oldmenuindex = current
-				callInThread(self.makeThread, movetoend=True)
+				callInThread(self.makeThread, self.checkHTMLerror, movetoend=True)
 		else:
 			if current < len(self.postList):
 				postDetails = self.postList[current]
@@ -795,7 +792,7 @@ class openATVMain(ATVhelper):
 	def keyOkCB(self, home=False):
 		if home:
 			self["menu"].updateList([])
-			callInThread(self.makeLatest)
+			callInThread(self.makeLatest, self.checkHTMLerror)
 
 	def keyExit(self):
 		if self.currMode == "menu":
@@ -826,11 +823,11 @@ class openATVMain(ATVhelper):
 			if self.currMode == "menu":
 				self.menuindex = self["menu"].getCurrentIndex()
 				self["menu"].updateList([])
-				callInThread(self.makeLatest, index=self.menuindex)
+				callInThread(self.makeLatest, self.checkHTMLerror, index=self.menuindex)
 			elif self.threadLink:
 				self.threadindex = self["menu"].getCurrentIndex()
 				self["menu"].updateList([])
-				callInThread(self.makeThread, index=self.threadindex)
+				callInThread(self.makeThread, self.checkHTMLerror, index=self.threadindex)
 
 	def keyYellow(self):
 		if self.favMenu:
@@ -847,7 +844,7 @@ class openATVMain(ATVhelper):
 		self.updateYellowButton()
 		if home:
 			self["menu"].updateList([])
-			callInThread(self.makeLatest)
+			callInThread(self.makeLatest, self.checkHTMLerror)
 
 	def keyBlue(self):
 		if self.favMenu:
@@ -896,7 +893,7 @@ class openATVMain(ATVhelper):
 			threadid = parse_qs(urlparse(threadLink).query)["t"][0] if "t=" in threadLink else ""
 			if threadid:
 				self.threadLink = fparser.createThreadUrl(threadid, (self.currPage - 1) * self.POSTSPERTHREAD)
-				callInThread(self.makeThread)
+				callInThread(self.makeThread, self.checkHTMLerror)
 
 	def prevPage(self):
 		if self.currMode == "menu":
@@ -908,7 +905,7 @@ class openATVMain(ATVhelper):
 			threadid = parse_qs(urlparse(threadLink).query)["t"][0] if "t=" in threadLink else ""
 			if threadid:
 				self.threadLink = fparser.createThreadUrl(threadid, (self.currPage - 1) * self.POSTSPERTHREAD)
-				callInThread(self.makeThread, movetoend=True)
+				callInThread(self.makeThread, self.checkHTMLerror, movetoend=True)
 
 	def gotoPage(self, number):
 		if self.currMode == "thread":
@@ -923,7 +920,7 @@ class openATVMain(ATVhelper):
 				threadid = parse_qs(urlparse(self.threadLink).query)["t"][0] if "t=" in self.threadLink else ""
 				if threadid:
 					self.threadLink = fparser.createThreadUrl(threadid, (number - 1) * self.POSTSPERTHREAD)
-					callInThread(self.makeThread)
+					callInThread(self.makeThread, self.checkHTMLerror)
 
 	def checkFiles(self):
 		try:

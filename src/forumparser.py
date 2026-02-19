@@ -65,7 +65,7 @@ class FparserHelper:
 		url = f"{atvpglobals.BASEURL}index.php?recent_topics_start={startPage}"
 		errMsg, htmlData = fparser.getHTMLdata(url)
 		if errMsg:
-			return errMsg, []
+			return errMsg, {}
 		pageList, pageUser = [], []
 		try:
 			xml = BeautifulSoup(htmlData, features="lxml")  # .replace('&amp;', '&')  # work around BeautifulSoup bug
@@ -95,7 +95,7 @@ class FparserHelper:
 		latestUser += pageUser
 		return errMsg, {"threadTitle": threadTitle, "currPost": currPost, "threads": latestList, "users": list(set(latestUser))}  # remove duplicates from userlist
 
-	def parseTread(self, threadUrl=""):
+	def parseThread(self, threadUrl=""):
 		def setThreadKey(key, value, replacements=[]):
 			if value:
 				text = value if isinstance(value, str) else value.get_text()
@@ -109,23 +109,24 @@ class FparserHelper:
 
 		if not threadUrl:
 			errMsg = "No threadUrl given."
-			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseTread': {errMsg}")
-			return errMsg, []
+			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseThread': {errMsg}")
+			return errMsg, {}
 		errMsg, htmlData = fparser.getHTMLdata(threadUrl)
 		if errMsg:
-			return errMsg, []
+			return errMsg, {}
 		try:
 			xml = BeautifulSoup(htmlData, features="lxml")  # .replace('&amp;', '&')  # work around BeautifulSoup bug
 		except Exception as errMsg:
-			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseTread': {errMsg}")
+			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseThread': {errMsg}")
 		titleLine = xml.title.string.replace(" - openATV Forum", "")  # "LCD4linux - Seite 150"
 		foundpos = titleLine.rfind("Seite")
 		threadTitle = titleLine[:foundpos - 3] if foundpos != -1 else titleLine
-		button = xml.find("a", {"class": "button button-icon-only dropdown-trigger"})
-		if button:
-			currPage, maxPages = button.get_text().strip("Seite ").split(" von ")
-			currPage = convert2int(currPage, 1)
-			maxPages = convert2int(maxPages, 1)
+		active = xml.find("li", {"class": "active"})  # <li class="active"><span>2</span></li>
+		if active:
+			active = active.span.get_text()
+			currPage = convert2int(active, 1) if active and active.isdigit() else 1
+			button = xml.find("a", {"class": "button", "role": "button"}).get_text("button")  # <a class="button" href="./viewtopic.php?t=69626&amp;start=20" role="button">2</a>
+			maxPages = convert2int(button, 1) if button and button.isdigit() else currPage
 		else:
 			currPage, maxPages = 1, 1
 		threadList, threadUser = [], []
@@ -166,7 +167,7 @@ class FparserHelper:
 			url = f"{atvpglobals.BASEURL}viewtopic.php?p={postId}#p{postId}"
 		else:
 			errMsg = "Neither threadId nor postId given."
-			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseTread': {errMsg}")
+			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseThread': {errMsg}")
 			return errMsg, []
 		errMsg, htmlData = fparser.getHTMLdata(url)
 		if errMsg:
@@ -174,7 +175,7 @@ class FparserHelper:
 		try:
 			xml = BeautifulSoup(htmlData, features="lxml")  # .replace('&amp;', '&')  # work around BeautifulSoup bug
 		except Exception as errMsg:
-			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseTread': {errMsg}")
+			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseThread': {errMsg}")
 		for post in xml.find_all("div", class_=compile("post has-profile (.*?)")):
 			pId = post.get("id", "").strip("profile")
 			if postId != pId:
@@ -212,7 +213,10 @@ class FparserHelper:
 				setPostKey("postNumber", postBody.find("p", {"class": "author post-number post-number-phpbb post-number-bold"}), replacements=["\n"])
 				setPostKey("online", "online" if postBody.find("div", {"class": compile("post .*? online")}) else "")
 				setPostKey("postTime", postBody.find("time").get_text())
-			setPostKey("fullContent", postBody.find("div", {"class": "content"}).get_text(separator="\n", strip=True))
+			fullContent = postBody.find("div", {"class": "content"}).get_text()
+			while "\n\n\n" in fullContent:  # remove multiple '\n\
+				fullContent = fullContent.replace("\n\n\n", "\n\n")
+			setPostKey("fullContent", fullContent)
 			changeLine = postBody.find("div", {"class": "notice"})
 			if changeLine:
 				setPostKey("changeLine", changeLine.get_text().strip())
@@ -227,46 +231,49 @@ def main(argv):  # shell interface
 	resultDict = {}
 	helpstring = "forumparser v1.0: try 'python forumparser.py -h' for more information"
 	try:
-		opts, args = getopt(argv, "j:l:t:ph", ["json=", "latest=", "thread=", "post", "help"])
+		opts, args = getopt(argv, "j:l:t:p:h", ["json=", "latest=", "thread=", "post=", "help"])
 	except GetoptError as error:
-		print(f"Error: {error}\n{helpstring}")
+		print(f"ERROR: {error}\n{helpstring}")
 		exit(2)
 	for opt, arg in opts:
 		opt = opt.lower().strip()
 		arg = arg.strip()
 		if not opts or opt == "-h":
 			print("Usage 'forumparser v1.0': python forumparser.py [option...] <data>\n"
-			"Example: python forumparser.py -l 0 -j lastest.json\n"
-			"-l, --latest <page-no>\t\tGet list of latest threads\n"
-			"-t, --thread <page-no>\t\tGet posts of a single thread (details: see code)\n"
-			"-p, --post\t\t\tGet a single post (details: see code)\n"
+			"Example: python forumparser.py -l 1 -j lastest.json\n"
+			"-l, --latest <pageNo>\t\tGet list of latest threads\n"
+			"-t, --thread <threadId-pageNo>\tGet posts of a single thread (details: see code)\n"
+			"-p, --post <postId>\t\tGet a single post (details: see code)\n"
 			"-j, --json <filename>\t\tFile output formatted in JSON\n")
 			exit()
 		elif opt in ("-l", "--latest"):
-			if arg.isdigit():
-				errMsg, resultDict = fparser.parseLatest((int(arg)) * 5)
+			if arg != "0":
+				if arg.isdigit():
+					errMsg, resultDict = fparser.parseLatest((int(arg) - 1) * 5)
+					errMsg, resultDict = "page number is missing, using page no. 0", fparser.parseLatest(0)
+					if errMsg:
+						print("ERROR:", errMsg)
 			else:
-				errMsg, resultDict = "page number is missing.", {}
-			if errMsg:
-				print("Error:", errMsg)
-				exit(2)
+					print("ERROR: Can't download page-no '0'")
 		elif opt in ("-j", "--json"):
 			filename = arg
 		elif opt in ("-t", "--thread"):
-			threadId = "62104"
-			if arg.isdigit():
-				threadUrl = f"{atvpglobals.BASEURL}viewtopic.php?t={threadId}&start={(int(arg)) * 20}"
-				print(threadUrl)
-				errMsg, resultDict = fparser.parseTread(threadUrl=threadUrl)
+			arguments = arg.split("-")
+			threadId, pageNo = arguments[0], arguments[1] if len(arguments) > 1 else "0"
+			if pageNo != "0":
+				if pageNo.isdigit():
+					threadUrl = f"{atvpglobals.BASEURL}viewtopic.php?t={threadId}&start={(int(pageNo) - 1) * 20}"
+					print(threadUrl)
+					errMsg, resultDict = fparser.parseThread(threadUrl)
+					if errMsg:
+						print("ERROR:", errMsg)
+						exit(2)
 			else:
-				errMsg, resultDict = "page number is missing.", {}
-			if errMsg:
-				print("Error:", errMsg)
-				exit(2)
+				print("ERROR: Can't download page-no '0'")
 		elif opt in ("-p", "--post"):
-			errMsg, resultDict = fparser.parsePost(postId="591620")
+			errMsg, resultDict = fparser.parsePost(arg)
 			if errMsg:
-				print("Error:", errMsg)
+				print("ERROR:", errMsg)
 				exit(2)
 	if resultDict and filename:
 		with open(filename, "w") as file:

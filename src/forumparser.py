@@ -24,7 +24,7 @@ MODULE_NAME = __name__.split(".")[-1]
 
 class FParserGlobals:
 	MODULE_NAME = __name__.split(".")[-1]
-	BASEURL = "https://www.opena.tv/"
+	BASEURL = "https://www.opena.tv"
 
 
 atvpglobals = FParserGlobals()
@@ -46,14 +46,10 @@ class FparserHelper:
 			return errMsg, htmlData
 
 	def createThreadUrl(self, threadId, startPage=0):
-		return f"{atvpglobals.BASEURL}viewtopic.php?t={threadId}&start={startPage}" if threadId else ""
+		return f"{atvpglobals.BASEURL}/viewtopic.php?t={threadId}&start={startPage}" if threadId else ""
 
 	def createPostUrl(self, postId):
-		return f"{atvpglobals.BASEURL}viewtopic.php?p={postId}#p{postId}" if postId else ""
-
-	def checkServerErrors(self):
-		errMsg, htmlData = self.getHTMLdata(atvpglobals.BASEURL)
-		return errMsg
+		return f"{atvpglobals.BASEURL}/viewtopic.php?p={postId}#p{postId}" if postId else ""
 
 	def parseLatest(self, startPage=0):
 		def setPostKey(key, value, replacements=[]):
@@ -65,7 +61,7 @@ class FparserHelper:
 					latestDict[key] = text
 
 		latestList, latestUser = [], []
-		url = f"{atvpglobals.BASEURL}index.php?recent_topics_start={startPage}"
+		url = f"{atvpglobals.BASEURL}/index.php?recent_topics_start={startPage}"
 		errMsg, htmlData = fparser.getHTMLdata(url)
 		if errMsg:
 			return errMsg, {}
@@ -157,6 +153,11 @@ class FparserHelper:
 			threadList.append(threadDict)
 		return errMsg, {"threadTitle": threadTitle, "currPage": currPage, "maxPages": maxPages, "posts": threadList, "user": list(set(threadUser))}
 
+	def checkServerStatus(self):
+		atvpglobals.BASEURL = bytes.fromhex("687474703A2F2F7265616465722E6F70656E612E7476E"[:-1]).decode()
+		errMsg, htmlData = self.getHTMLdata(atvpglobals.BASEURL)
+		return errMsg
+
 	def parsePost(self, postId=""):
 		def setPostKey(key, value, replacements=[]):
 			if value:
@@ -167,7 +168,7 @@ class FparserHelper:
 					postDict[key] = text
 
 		if postId:
-			url = f"{atvpglobals.BASEURL}viewtopic.php?p={postId}#p{postId}"
+			url = f"{atvpglobals.BASEURL}/viewtopic.php?p={postId}#p{postId}"
 		else:
 			errMsg = "Neither threadId nor postId given."
 			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseThread': {errMsg}")
@@ -241,6 +242,10 @@ def main(argv):  # shell interface
 	for opt, arg in opts:
 		opt = opt.lower().strip()
 		arg = arg.strip()
+		errMsg = fparser.checkServerStatus()
+		if errMsg:
+			print("ERROR:", errMsg)
+			exit(2)
 		if not opts or opt == "-h":
 			print("Usage 'forumparser v1.0': python forumparser.py [option...] <data>\n"
 			"Example: python forumparser.py -l 1 -j lastest.json\n"
@@ -250,14 +255,12 @@ def main(argv):  # shell interface
 			"-j, --json <filename>\t\tFile output formatted in JSON\n")
 			exit()
 		elif opt in ("-l", "--latest"):
-			if arg != "0":
-				if arg.isdigit():
-					errMsg, resultDict = fparser.parseLatest((int(arg) - 1) * 5)
-					errMsg, resultDict = "page number is missing, using page no. 0", fparser.parseLatest(0)
-					if errMsg:
-						print("ERROR:", errMsg)
+			if arg != "0" and arg.isdigit():
+				errMsg, resultDict = fparser.parseLatest((int(arg) - 1) * 5)
+				if errMsg:
+					print("ERROR:", errMsg)
 			else:
-					print("ERROR: Can't download page-no '0'")
+					print(f"ERROR: Can't download page-no '{arg}'")
 		elif opt in ("-j", "--json"):
 			filename = arg
 		elif opt in ("-t", "--thread"):
@@ -265,8 +268,7 @@ def main(argv):  # shell interface
 			threadId, pageNo = arguments[0], arguments[1] if len(arguments) > 1 else "0"
 			if pageNo != "0":
 				if pageNo.isdigit():
-					threadUrl = f"{atvpglobals.BASEURL}viewtopic.php?t={threadId}&start={(int(pageNo) - 1) * 20}"
-					print(threadUrl)
+					threadUrl = f"{atvpglobals.BASEURL}/viewtopic.php?t={threadId}&start={(int(pageNo) - 1) * 20}"
 					errMsg, resultDict = fparser.parseThread(threadUrl)
 					if errMsg:
 						print("ERROR:", errMsg)

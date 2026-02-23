@@ -625,16 +625,17 @@ class openATVMain(ATVhelper):
 		self.showPic(self["button_page"], join(self.PLUGINPATH, f"icons/key_updown_{self.RESOLUTION}.png"), show=False, scale=False)
 		self.showPic(self["button_keypad"], join(self.PLUGINPATH, f"icons/keypad_{self.RESOLUTION}.png"), show=False, scale=False)
 		self.updateYellowButton()
-		errMsg = fparser.checkServerErrors()
+		errMsg = fparser.checkServerStatus()
 		if errMsg:
-			self.checkHTMLerror(errMsg)
+			self.displayHTMLerror(errMsg)
 			self.keyExit()
-		if self.favlink or self.threadLink and self.threadLinks:
-			callInThread(self.makeThread, self.checkHTMLerror)
 		else:
-			callInThread(self.makeLatest, self.checkHTMLerror)
+			if self.favlink or self.threadLink and self.threadLinks:
+				callInThread(self.makeThread, self.displayHTMLerror)
+			else:
+				callInThread(self.makeLatest, self.displayHTMLerror)
 
-	def checkHTMLerror(self, errMsg=""):
+	def displayHTMLerror(self, errMsg=""):
 		if errMsg:
 			self.session.open(MessageBox, f"Fehler beim Zugriff auf die Forumsseite:\n\n{errMsg}\n\n", type=MessageBox.TYPE_ERROR, timeout=5, close_on_any_key=True)
 
@@ -780,7 +781,7 @@ class openATVMain(ATVhelper):
 			self.threadLink = self.threadLinks[current]
 			if self.threadLink:
 				self.oldmenuindex = current
-				callInThread(self.makeThread, self.checkHTMLerror, movetoend=True)
+				callInThread(self.makeThread, self.displayHTMLerror, movetoend=True)
 		else:
 			if current < len(self.postList):
 				postDetails = self.postList[current]
@@ -791,7 +792,7 @@ class openATVMain(ATVhelper):
 	def keyOkCB(self, home=False):
 		if home:
 			self["menu"].updateList([])
-			callInThread(self.makeLatest, self.checkHTMLerror)
+			callInThread(self.makeLatest, self.displayHTMLerror)
 
 	def keyExit(self):
 		if self.currMode == "menu":
@@ -822,11 +823,11 @@ class openATVMain(ATVhelper):
 			if self.currMode == "menu":
 				self.menuindex = self["menu"].getCurrentIndex()
 				self["menu"].updateList([])
-				callInThread(self.makeLatest, self.checkHTMLerror, index=self.menuindex)
+				callInThread(self.makeLatest, self.displayHTMLerror, index=self.menuindex)
 			elif self.threadLink:
 				self.threadindex = self["menu"].getCurrentIndex()
 				self["menu"].updateList([])
-				callInThread(self.makeThread, self.checkHTMLerror, index=self.threadindex)
+				callInThread(self.makeThread, self.displayHTMLerror, index=self.threadindex)
 
 	def keyYellow(self):
 		if self.favMenu:
@@ -843,7 +844,7 @@ class openATVMain(ATVhelper):
 		self.updateYellowButton()
 		if home:
 			self["menu"].updateList([])
-			callInThread(self.makeLatest, self.checkHTMLerror)
+			callInThread(self.makeLatest, self.displayHTMLerror)
 
 	def keyBlue(self):
 		if self.favMenu:
@@ -892,7 +893,7 @@ class openATVMain(ATVhelper):
 			threadid = parse_qs(urlparse(threadLink).query)["t"][0] if "t=" in threadLink else ""
 			if threadid:
 				self.threadLink = fparser.createThreadUrl(threadid, (self.currPage - 1) * self.POSTSPERTHREAD)
-				callInThread(self.makeThread, self.checkHTMLerror)
+				callInThread(self.makeThread, self.displayHTMLerror)
 
 	def prevPage(self):
 		if self.currMode == "menu":
@@ -904,7 +905,7 @@ class openATVMain(ATVhelper):
 			threadid = parse_qs(urlparse(threadLink).query)["t"][0] if "t=" in threadLink else ""
 			if threadid:
 				self.threadLink = fparser.createThreadUrl(threadid, (self.currPage - 1) * self.POSTSPERTHREAD)
-				callInThread(self.makeThread, self.checkHTMLerror, movetoend=True)
+				callInThread(self.makeThread, self.displayHTMLerror, movetoend=True)
 
 	def gotoPage(self, number):
 		if self.currMode == "thread":
@@ -919,7 +920,7 @@ class openATVMain(ATVhelper):
 				threadid = parse_qs(urlparse(self.threadLink).query)["t"][0] if "t=" in self.threadLink else ""
 				if threadid:
 					self.threadLink = fparser.createThreadUrl(threadid, (number - 1) * self.POSTSPERTHREAD)
-					callInThread(self.makeThread, self.checkHTMLerror)
+					callInThread(self.makeThread, self.displayHTMLerror)
 
 	def checkFiles(self):
 		try:

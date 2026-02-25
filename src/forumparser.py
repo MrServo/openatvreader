@@ -40,9 +40,8 @@ class FparserHelper:
 			del response
 			return errMsg, htmlData
 		except exceptions.RequestException as errMsg:
-			errMsg = str(errMsg)
-			errMsg = errMsg[:errMsg.rfind(": ")]
-			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:getHTMLdata': {errMsg}")
+			errMsg = str(errMsg).replace(atvpglobals.BASEURL.replace("https://", ""), "").replace("'", "").replace("/", "")
+			print(f"[{MODULE_NAME}] ERROR in module 'getHTMLdata': {errMsg}")
 			return errMsg, htmlData
 
 	def createThreadUrl(self, threadId, startPage=0):
@@ -69,7 +68,7 @@ class FparserHelper:
 		try:
 			xml = BeautifulSoup(htmlData, features="lxml")  # .replace('&amp;', '&')  # work around BeautifulSoup bug
 		except Exception as errMsg:
-			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseLatest': {errMsg}")
+			print(f"[{MODULE_NAME}] ERROR in module 'parseLatest': {errMsg}")
 		threadTitle = "aktuelle Themen"
 		currPost = startPage
 		topicList = xml.find("ul", {"class": "topiclist topics collapsible"})
@@ -108,7 +107,7 @@ class FparserHelper:
 
 		if not threadUrl:
 			errMsg = "No threadUrl given."
-			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseThread': {errMsg}")
+			print(f"[{MODULE_NAME}] ERROR in module 'parseThread': {errMsg}")
 			return errMsg, {}
 		errMsg, htmlData = fparser.getHTMLdata(threadUrl)
 		if errMsg:
@@ -116,7 +115,7 @@ class FparserHelper:
 		try:
 			xml = BeautifulSoup(htmlData, features="lxml")  # .replace('&amp;', '&')  # work around BeautifulSoup bug
 		except Exception as errMsg:
-			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseThread': {errMsg}")
+			print(f"[{MODULE_NAME}] ERROR in module 'parseThread': {errMsg}")
 		titleLine = xml.title.string.replace(" - openATV Forum", "")  # "LCD4linux - Seite 150"
 		foundpos = titleLine.rfind("Seite")
 		threadTitle = titleLine[:foundpos - 3] if foundpos != -1 else titleLine
@@ -171,7 +170,7 @@ class FparserHelper:
 			url = f"{atvpglobals.BASEURL}/viewtopic.php?p={postId}#p{postId}"
 		else:
 			errMsg = "Neither threadId nor postId given."
-			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseThread': {errMsg}")
+			print(f"[{MODULE_NAME}] ERROR in module 'parseThread': {errMsg}")
 			return errMsg, []
 		errMsg, htmlData = fparser.getHTMLdata(url)
 		if errMsg:
@@ -179,7 +178,7 @@ class FparserHelper:
 		try:
 			xml = BeautifulSoup(htmlData, features="lxml")  # .replace('&amp;', '&')  # work around BeautifulSoup bug
 		except Exception as errMsg:
-			print(f"[{MODULE_NAME}] ERROR in class 'FparserHelper:parseThread': {errMsg}")
+			print(f"[{MODULE_NAME}] ERROR in module 'parseThread': {errMsg}")
 		for post in xml.find_all("div", class_=compile("post has-profile (.*?)")):
 			pId = post.get("id", "").strip("profile")
 			if postId != pId:

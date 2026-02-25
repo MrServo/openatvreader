@@ -619,21 +619,26 @@ class openATVMain(ATVhelper):
 		self.offline = LoadPixmap(cached=True, path=statusFile) if exists(statusFile) else None
 		copy2(join(self.PLUGINPATH, "icons/user_stat.png"), self.AVATARPATH)
 		copy2(join(self.PLUGINPATH, "icons/unknown.png"), self.AVATARPATH)
-		self.onShown.append(self.onShownFinished)
+		errMsg = fparser.checkServerStatus()
+		if errMsg:
+			self.terminateTimer = eTimer()  # in order to avoid E2 modal error
+			self.terminateTimer.callback.append(boundFunction(self.terminatePlugin, errMsg))
+			self.terminateTimer.start(200, True)
+		else:
+			self.onLayoutFinish.append(self.layoutFinished)
 
-	def onShownFinished(self):
+	def layoutFinished(self):
 		self.showPic(self["button_page"], join(self.PLUGINPATH, f"icons/key_updown_{self.RESOLUTION}.png"), show=False, scale=False)
 		self.showPic(self["button_keypad"], join(self.PLUGINPATH, f"icons/keypad_{self.RESOLUTION}.png"), show=False, scale=False)
 		self.updateYellowButton()
-		errMsg = fparser.checkServerStatus()
-		if errMsg:
-			self.displayHTMLerror(errMsg)
-			self.keyExit()
+		if self.favlink or self.threadLink and self.threadLinks:
+			callInThread(self.makeThread, self.displayHTMLerror)
 		else:
-			if self.favlink or self.threadLink and self.threadLinks:
-				callInThread(self.makeThread, self.displayHTMLerror)
-			else:
-				callInThread(self.makeLatest, self.displayHTMLerror)
+			callInThread(self.makeLatest, self.displayHTMLerror)
+
+	def terminatePlugin(self, errMsg):
+		self.displayHTMLerror(errMsg)
+		self.keyExit()
 
 	def displayHTMLerror(self, errMsg=""):
 		if errMsg:

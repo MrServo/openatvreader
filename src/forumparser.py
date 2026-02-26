@@ -154,7 +154,7 @@ class FparserHelper:
 
 	def checkServerStatus(self):
 		atvpglobals.BASEURL = bytes.fromhex("687474703A2F2F7265616465722E6F70656E612E7476E"[:-1]).decode()
-		errMsg, htmlData = self.getHTMLdata(atvpglobals.BASEURL)
+		errMsg, htmlData = self.getHTMLdata(f"{atvpglobals.BASEURL}/index.php")
 		return errMsg
 
 	def parsePost(self, postId=""):
@@ -238,13 +238,13 @@ def main(argv):  # shell interface
 	except GetoptError as error:
 		print(f"ERROR: {error}\n{helpstring}")
 		exit(2)
+	errMsg = fparser.checkServerStatus()
+	if errMsg:
+		print("ERROR:", errMsg)
+		exit(2)
 	for opt, arg in opts:
 		opt = opt.lower().strip()
 		arg = arg.strip()
-		errMsg = fparser.checkServerStatus()
-		if errMsg:
-			print("ERROR:", errMsg)
-			exit(2)
 		if not opts or opt == "-h":
 			print("Usage 'forumparser v1.0': python forumparser.py [option...] <data>\n"
 			"Example: python forumparser.py -l 1 -j lastest.json\n"

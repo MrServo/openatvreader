@@ -119,12 +119,11 @@ class FparserHelper:
 		titleLine = xml.title.string.replace(" - openATV Forum", "")  # "LCD4linux - Seite 150"
 		foundpos = titleLine.rfind("Seite")
 		threadTitle = titleLine[:foundpos - 3] if foundpos != -1 else titleLine
-		active = xml.find("li", {"class": "active"})  # <li class="active"><span>2</span></li>
-		if active:
-			active = active.span.get_text()
-			currPage = convert2int(active, 1) if active and active.isdigit() else 1
-			button = xml.find("a", {"class": "button", "role": "button"}).get_text("button")  # <a class="button" href="./viewtopic.php?t=69626&amp;start=20" role="button">2</a>
-			maxPages = convert2int(button, 1) if button and button.isdigit() else currPage
+		threadId = xml.find("input", {"name": "t", "type": "hidden"}).get("value")
+		button = xml.find("a", {"class": "button button-icon-only dropdown-trigger"})
+		if button:
+			pages = button.get_text().strip("Seite ").split(" von ")
+			currPage, maxPages = (convert2int(pages[0], 1), convert2int(pages[1], 1)) if pages and len(pages) > 1 else (1, 1)
 		else:
 			currPage, maxPages = 1, 1
 		threadList, threadUser = [], []
@@ -150,7 +149,11 @@ class FparserHelper:
 			setThreadKey("postTime", postBody.find("time").get_text())
 			setThreadKey("shortContent", postBody.find("div", {"class": "content"}).get_text(separator=" ", strip=True)[:300])  # limit content as preview
 			threadList.append(threadDict)
-		return errMsg, {"threadTitle": threadTitle, "currPage": currPage, "maxPages": maxPages, "posts": threadList, "user": list(set(threadUser))}
+		return errMsg, {
+			"threadTitle": threadTitle, "threadId": threadId,
+			"currPage": currPage, "maxPages": maxPages,
+			"posts": threadList, "user": list(set(threadUser))
+			}
 
 	def checkServerStatus(self):
 		atvpglobals.BASEURL = bytes.fromhex("687474703A2F2F7265616465722E6F70656E612E7476E"[:-1]).decode()
@@ -179,7 +182,7 @@ class FparserHelper:
 			xml = BeautifulSoup(htmlData, features="lxml")  # .replace('&amp;', '&')  # work around BeautifulSoup bug
 		except Exception as errMsg:
 			print(f"[{MODULE_NAME}] ERROR in module 'parseThread': {errMsg}")
-		for post in xml.find_all("div", class_=compile("post has-profile (.*?)")):
+		for post in xml.find_all("div", class_=compile("post has-profile .*?")):
 			pId = post.get("id", "").strip("profile")
 			if postId != pId:
 				continue
@@ -188,6 +191,7 @@ class FparserHelper:
 			postProfile = post.find("dl", {"class": "postprofile"})
 			if postProfile:
 				setPostKey("userName", postProfile.find("a", {"class": compile("username(.*?)")}))
+				setPostKey("online", "online" if "online" in str(post) else "")
 				avatar = postProfile.find("img", {"class": "avatar"})
 				if avatar:
 					avatarUrl = avatar.get("src", "").strip(".")
@@ -214,7 +218,6 @@ class FparserHelper:
 			postBody = post.find("div", {"class": "postbody"})
 			if postBody:
 				setPostKey("postNumber", postBody.find("p", {"class": "author post-number post-number-phpbb post-number-bold"}), replacements=["\n"])
-				setPostKey("online", "online" if postBody.find("div", {"class": compile("post .*? online")}) else "")
 				setPostKey("postTime", postBody.find("time").get_text())
 			fullContent = postBody.find("div", {"class": "content"}).get_text()
 			while "\n\n\n" in fullContent:  # remove multiple '\n\

@@ -782,7 +782,7 @@ class openATVMain(ATVhelper):
 
 	def keyOk(self):
 		current = self["menu"].getCurrentIndex()
-		if self.currMode == "menu":
+		if self.currMode == "menu" and len(self.threadLinks) > current:
 			self.threadLink = self.threadLinks[current]
 			if self.threadLink:
 				self.oldmenuindex = current

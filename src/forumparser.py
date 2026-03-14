@@ -79,7 +79,7 @@ class FparserHelper:
 			url = topicTitle.get("href", "")
 			setPostKey("threadId", url[url.find("?t=") + 3:url.rfind("&sid=")])
 			respShow = post.find("div", class_="responsive-show")
-			userName = respShow.get_text(strip=True)[19:]  # "Letzter Beitrag von  Testomat  « 23 Okt 2025 16:26"
+			userName = respShow.get_text(strip=True)[19:]  # "Letzter Beitrag von Testomat  « 23 Okt 2025 16:26"
 			userName = userName[:userName.find("«")]
 			setPostKey("userName", userName)
 			setPostKey("latestLine", respShow, replacements=(["\t", "\n"]))
@@ -120,12 +120,12 @@ class FparserHelper:
 		foundpos = titleLine.rfind("Seite")
 		threadTitle = titleLine[:foundpos - 3] if foundpos != -1 else titleLine
 		threadId = xml.find("input", {"name": "t", "type": "hidden"}).get("value")
-		button = xml.find("a", {"class": "button button-icon-only dropdown-trigger"})
-		if button:
-			pages = button.get_text().strip("Seite ").split(" von ")
-			currPage, maxPages = (convert2int(pages[0], 1), convert2int(pages[1], 1)) if pages and len(pages) > 1 else (1, 1)
-		else:
-			currPage, maxPages = 1, 1
+		pagination = xml.find("div", {"class": "pagination"})  # <div class="pagination">   21 Beiträge   <ul>
+		pagination = pagination.get_text().strip().split(" ")[0] if pagination else "1"
+		maxPages = ((int(pagination) - 1) // 20) + 1 if pagination.isdigit() else 1
+		active = xml.find("li", {"class": "active"})  # <li class="active"><span>11</span></li>
+		active = active.get_text() if active else "1"
+		currPage = int(active) if active.isdigit() else 1
 		threadList, threadUser = [], []
 		for post in xml.find_all("div", {"class": compile("post has-profile bg(.*?)")}):
 			threadDict = {}
@@ -168,7 +168,7 @@ class FparserHelper:
 					for replacement in replacements:
 						text = text.replace(replacement, "")
 					postDict[key] = text
-
+		postDict = {}
 		if postId:
 			url = f"{atvpglobals.BASEURL}/viewtopic.php?p={postId}#p{postId}"
 		else:

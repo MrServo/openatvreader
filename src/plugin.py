@@ -93,7 +93,7 @@ class ATVhelper(Screen, ATVglobals):
 			print(f"[{self.MODULE_NAME}] ERROR in module 'downloadAvatar': {errMsg}!")
 			self.session.open(MessageBox, errMsg, MessageBox.TYPE_INFO, timeout=30, close_on_any_key=True)
 		fileParts = filePath.split(".")
-		if SUPPALLIMGS:  # use function 'detectImageType' in OpenATV 7.6.0 or newer
+		if SUPPALLIMGS:  # use new function 'detectImageType' in OpenATV 7.6.0 or newer
 			extension = {0: "png", 1: "jpg", 3: "gif", 4: "svg", 5: "webp"}.get(detectImageType(filePath), fileParts[1])
 		else:  # use DEPRECATED function 'what' in OpenATV 7.5.1 or OpenATV 7.5.1 or older
 			extension = what(filePath).replace("jpeg", "jpg")
@@ -424,6 +424,7 @@ class openATVPost(ATVhelper):
 				filePath = join(self.AVATARPATH, fileName) if fileName else join(self.AVATARPATH, "unknown.png")
 			if filePath and exists(filePath):
 				iconPix = LoadPixmap(cached=True, path=filePath)
+				self.showPic(widget, filePath)
 			elif callback:
 					callInThread(callback, widget, iconUrl, filePath)
 		return iconPix
